@@ -1,36 +1,5 @@
 # zendesk-open-ticket-checker
 
-FIXME: description
+A program I wrote to check for open Zendesk tickets that need a response via the Zendesk Core API. These are defined as open tickets that are assigned to the provided email where the last response is from a different user.
 
-## Installation
-
-Download from http://example.com/FIXME.
-
-## Usage
-
-FIXME: explanation
-
-    $ java -jar zendesk-open-ticket-checker-0.1.0-standalone.jar [args]
-
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
-
-## License
-
-Copyright © 2016 FIXME
-
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+I have it set up to run every 30 minutes and add those tickets to my TODO list in org mode.
