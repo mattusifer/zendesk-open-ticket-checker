@@ -6,3 +6,4 @@
 .hgignore
 .hg/
 .DS_Store
+/token

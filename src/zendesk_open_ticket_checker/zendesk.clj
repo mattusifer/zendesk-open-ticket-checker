@@ -5,13 +5,10 @@
 
 (def zd-token 
   (String. 
-   (b64/encode (.getBytes "musifer@rjmetrics.com/token:DwZvThvjSM5U3ozE825L05rcHmvGLUUAYfsyR55T"))))
+   (b64/encode (.getBytes (slurp "token")))))
 (def zd-config 
   {:headers {:Authorization (str "Basic " zd-token)
              :Accept "application/json"}})
-
-;; my zd user id
-(def my-user-id 1450486289)
 
 (defn get-parsed-zd-response
   [url]
@@ -19,7 +16,8 @@
 
 (defn get-user-id
   [email]
-  (loop [cur-page (get-parsed-zd-response "https://rjmetrics.zendesk.com/api/v2/users.json?role[]=admin&role[]=agent")
+  (loop [cur-page (get-parsed-zd-response 
+                   "https://rjmetrics.zendesk.com/api/v2/users.json?role[]=admin&role[]=agent")
          users []]
     (if-let [user (some #(when (= email (or (:email %) "")) %) (:users cur-page))]
       (:id user)
@@ -48,7 +46,8 @@
               batch-comments 
               (recur (first remaining) (rest remaining)
                      (concat batch-comments 
-                             (for [event (filter #(and (:public %) (= (:type %) "Comment")) (:events audit))]
+                             (for [event (filter #(and (:public %) (= (:type %) "Comment")) 
+                                                 (:events audit))]
                                (assoc {}
                                       :created_at (:created_at audit)
                                       :author_id (:author_id audit))))))))]
@@ -62,6 +61,13 @@
         (recur (get-parsed-zd-response (:next_page cur-page))
                (concat comments (:tickets cur-page)))))))
 
+(defn get-cid-for-org
+  [organization-id]
+  (when (and (not (nil? organization-id)) (not (empty? (char-array organization-id))))
+    (-> (get-parsed-zd-response (str "https://rjmetrics.zendesk.com/api/v2/organizations/" 
+                                     organization-id ".json"))
+        :organization :organization_fields :cid)))
+
 (defn agent-made-last-response?
   [user-id comments]
   (= (:author_id (last (sort-by :created_at comments))) user-id ))
@@ -69,24 +75,9 @@
 (defn get-tickets-that-need-response [user-email]
 
   (let [user-id (get-user-id user-email)
-        all-tickets (get-tickets-assigned-to-user-id user-id)]
+        raw-tickets (get-tickets-assigned-to-user-id user-id)
+        all-tickets (map #(assoc % :cid (get-cid-for-org (:organization_id %))) raw-tickets)]
     
     (filter #(and (= (:status %) "open")
                   (not (agent-made-last-response? user-id (get-comments-for-ticket (:id %)))))
             all-tickets)))
-
-(comment
-
-  (get-user-id "musifer@rjmetrics.com")
-
-  (get-tickets-that-need-response "musifer@rjmetrics.com")
-
-  (slurp "/Users/mattusifer/Dropbox/symlinks/emacs/org-mode/work.org")
-
-  (def tickets-need-resp (get-tickets-that-need-response "musifer@rjmetrics.com"))
-
-  
-
-  
-
-)
