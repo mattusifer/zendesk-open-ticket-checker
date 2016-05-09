@@ -9,8 +9,8 @@
 (defn write-new-todo
   [tickets-need-resp]
   (let [todo-list (clojure.string/split 
-                    (slurp work-todo-list-location)
-                    #"\n")]
+                   (slurp work-todo-list-location)
+                   #"\n")]
     (loop [ticket (first tickets-need-resp)
            remaining (rest tickets-need-resp)
            new-todo-list todo-list]
@@ -21,7 +21,8 @@
             (spit work-todo-list-location (str line "\n") :append true)))
 
         (let [new-entry
-              (str "** TODO " (or (:cid ticket) "0000") " :: " (:id ticket) " :: "
+              (str "** TODO " (or (:cid ticket) "NOID") " :: " (:id ticket) " :: "
+                   (or (:org-name ticket) "NONAME") " :: "
                    (subs (:subject ticket) 0 (min (count (:subject ticket)) 50)))
               entry
               (or (some #(when (re-find (re-pattern (str (:id ticket))) %) %) 

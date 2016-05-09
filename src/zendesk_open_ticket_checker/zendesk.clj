@@ -3,16 +3,14 @@
             [clj-http.client :as client]
             [cheshire.core :as json]))
 
-(def zd-token 
-  (String. 
-   (b64/encode (.getBytes (slurp "token")))))
-(def zd-config 
-  {:headers {:Authorization (str "Basic " zd-token)
+(def zd-token (atom nil))
+(defn get-zendesk-config []
+  {:headers {:Authorization (str "Basic " @zd-token)
              :Accept "application/json"}})
 
 (defn get-parsed-zd-response
   [url]
-  (json/parse-string (:body (client/get url zd-config)) true))
+  (json/parse-string (:body (client/get url (get-zendesk-config))) true))
 
 (defn get-user-id
   [email]
@@ -61,23 +59,39 @@
         (recur (get-parsed-zd-response (:next_page cur-page))
                (concat comments (:tickets cur-page)))))))
 
-(defn get-cid-for-org
+(defn get-org-info
   [organization-id]
   (when (and (not (nil? organization-id)) (not (empty? (char-array organization-id))))
     (-> (get-parsed-zd-response (str "https://rjmetrics.zendesk.com/api/v2/organizations/" 
                                      organization-id ".json"))
-        :organization :organization_fields :cid)))
+        :organization)))
 
 (defn agent-made-last-response?
   [user-id comments]
   (= (:author_id (last (sort-by :created_at comments))) user-id ))
 
-(defn get-tickets-that-need-response [user-email]
+(defn get-tickets-that-need-response [user-email token]
+  (reset! zd-token (String. (b64/encode (.getBytes token))))
 
   (let [user-id (get-user-id user-email)
-        raw-tickets (get-tickets-assigned-to-user-id user-id)
-        all-tickets (map #(assoc % :cid (get-cid-for-org (:organization_id %))) raw-tickets)]
-    
-    (filter #(and (= (:status %) "open")
-                  (not (agent-made-last-response? user-id (get-comments-for-ticket (:id %)))))
-            all-tickets)))
+        raw-tickets (filter #(and (= (:status %) "open")
+                                  (not (agent-made-last-response? user-id 
+                                                                  (get-comments-for-ticket (:id %))))) 
+                            (get-tickets-assigned-to-user-id user-id))]
+    (map #(assoc % 
+                 :cid (-> (get-org-info (:organization_id %)) 
+                          :organiation_fields :cid)
+                 :org-name (-> (get-org-info (:organization_id %))
+                               :name)) raw-tickets)))
+
+(comment
+
+  (reset! zd-token (String. (b64/encode (.getBytes (slurp "token")))))
+
+  (def user-id (get-user-id "musifer@rjmetrics.com"))
+
+  (def raw-tickets (get-tickets-assigned-to-user-id user-id))
+
+  (def info (get-org-info (:organization_id (first all-tickets))))
+
+)

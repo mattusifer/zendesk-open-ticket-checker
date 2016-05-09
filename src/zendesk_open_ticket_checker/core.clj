@@ -7,8 +7,9 @@
 (defn -main
   "I do a whole lot"
   [& args]
-  (let [cli-opts [[nil "--tickets ID" "Get tickets to respond to based on your email address."
-                   :validate [#(re-matches #".*@.*\..*" %) "Must be a valid email address."]]]
+  (let [cli-opts [["-e" "--email EMAIL" "Get tickets to respond to based on your email address."
+                   :validate [#(re-matches #".*@.*\..*" %) "Must be a valid email address."]]
+                  ["-t" "--token TOKEN" "Your zendesk API token."]]
         error-msg (fn [errors]
                     (str "The following errors occurred while parsing your command: \n\n"
                          (clojure.string/join \newline errors)))
@@ -29,14 +30,15 @@
     
     ;; handle errors
     (cond 
-      (> (count (keys options)) 1) (exit 1 (error-msg ["Too many options! One task at a time, please."]))
+      (or (empty? options) (not (contains? options :email)))
+      (exit 1 (usage-summary summary))
+      (not (contains? options :token))
+      (exit 1 (error-msg ["You need to supply an API token."]))
       errors (exit 1 (error-msg errors)))
     
     ;; main
-    (case (first (keys options))
-      :tickets
-      (let [tickets-need-resp (zd/get-tickets-that-need-response (:tickets options))]
-        (org/write-new-todo tickets-need-resp)))))
+    (let [tickets-need-resp (zd/get-tickets-that-need-response (:email options) (:token options))]
+      (org/write-new-todo tickets-need-resp))))
 
 (comment
 
